@@ -1,0 +1,40 @@
+#!/bin/bash
+
+#SBATCH --partition=cpu2013
+
+#SBATCH --ntasks=1
+
+#SBATCH -c16
+
+#SBATCH --mem=64G
+
+#SBATCH --time=10:00:00
+
+#SBATCH --output=Con_L1_regular_%j.log
+
+export PATH=/home/sthiesse/cellranger-4.0.0:$PATH
+
+export PATH=$HOME/software/bcl2fastq:$PATH
+
+cellranger count --id=Con_L1_regular \
+                 --transcriptome=/home/sthiesse/refdata-gex-mm10-2020-A \
+                 --fastqs=/home/sthiesse/work/santamaria_lab/liver2-b-nkt/outs/fastq_path/HNYMFDRXX \
+                 --sample=Con_L1 \
+                 --jobmode=local --localcores=16 --localmem=55
+
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+-- INSERT --                                                                                                                        11,1          All
