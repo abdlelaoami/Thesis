@@ -1,0 +1,39 @@
+#!/bin/bash
+
+#SBATCH --partition=cpu2013
+
+#SBATCH --ntasks=1
+
+#SBATCH -c16
+
+#SBATCH --mem=64G
+
+#SBATCH --time=10:00:00
+
+#SBATCH --output=mfastqliver2-b-nkt_%j.log
+
+export PATH=/home/sthiesse/cellranger-4.0.0:$PATH
+
+export PATH=$HOME/software/bcl2fastq:$PATH
+
+cellranger mkfastq --id=liver2-b-nkt \
+                   --run=/home/sthiesse/200910_A00906_0068_AHNYMFDRXX \
+                   --csv=/home/sthiesse/SM-liver2-fastq-1.csv \
+                   --jobmode=local --localcores=16 --localmem=55
+
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+~                                                                                                                                                     
+-- INSERT --                                                                                                                        11,1          All
