@@ -1,0 +1,145 @@
+#set up your work directory
+setwd("~/THESIS/Seurat/BCL6_KO")
+
+#open required packages from R studio libray and set up enviornemnt
+
+library(Seurat)
+library(SeuratObject)
+library(dplyr)
+library(patchwork)
+library(ggplot2)
+library(cowplot)
+library(magrittr)
+
+#identify your data parameters, such as speccies of single cells data as well as sampletypes.
+species <- "mouse"
+sampletype <- c("BDC_CTL", "BDC_TET", "INS_CTL", "INS_TET")
+
+#indicate location of data feautre, matrix, and barcode files
+data <- Read10X(data.dir = "/Users/abdle/OneDrive/Documents/THESIS/Seurat/BCL6_KO/Final1/")
+
+# Create a Seurat Object from your single cell gene expression matrix data 
+scdata <- CreateSeuratObject(counts = data, min.cells = 3, min.features = 200)
+
+# Add mitochondrial DNA metadata to SeuratObject 
+if (species == "mouse") {
+scdata[["percent.mt"]] <- PercentageFeatureSet(scdata, pattern = "^mt-")
+} else {
+scdata[["percent.mt"]] <- PercentageFeatureSet(scdata, pattern = "^MT-")
+}
+
+#Subset Data based on minimum Feautures of 200 and removal of 
+scdata <- subset(scdata, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+
+#Scale and Normalize Data
+scdata <- NormalizeData(scdata, normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Find Variable Features 
+scdata <- FindVariableFeatures(scdata, selection.method = "vst", nfeatures = 2000)
+
+#Add sampletype and conditions to subsetted single cell metadata
+scdata$sampletype <- colnames(scdata)
+for (i in 1:length(sampletype)){
+scdata@meta.data[grep(paste0("-", i), colnames(scdata)), "sampletype"] <- sampletype[i]
+}
+scdata$condition <- gsub("^.*?_", "", scdata$sampletype)
+
+# Scale shifts the expression of genes mean expression across cells becomes 0 and the expression of each gene will have a variance across cells of 1
+# This gives qual weight of genes in downstream analyses, so that highly-expressed genes do not mask other results
+all.genes <- rownames(scdata)
+scdata <- ScaleData(scdata, features = all.genes)
+
+# Run linear dimensionality reduction through PCA and visualize PCs through Dimplot to justify your dimensionality of dataset.
+scdata <- RunPCA(scdata, verbose = TRUE)
+DimPlot(scdata, reduction = "pca", dims = c(1,2))
+
+# Run non linear dimensional reduction through t-SNE and UMAP then visualize with Dimplot to justify non linear dimensionality in global stucture
+scdata <- RunTSNE(scdata, reduction = "pca", dims = 1:20)
+DimPlot(scdata, reduction = "tsne", dims = c(1,2))
+
+
+scdata <- RunUMAP(scdata, reduction = "pca", dims = 1:20)
+DimPlot(scdata, reduction = "umap", dims = c(1,2))
+
+#Indicate the number of clusters expected based on previous metrics used.
+#Therefore make sure that your clusters are representive of PCs used for analysis.
+numberofclusters <- 5
+
+#It is important to set seeds to revert back to previous TSNE plots from this point on.
+#T-SNE plots are not replicabple in but should be able to be replicated to match your expected clustering 
+
+set.seed(1)
+
+# Run clustering on datset with tsne based on kmeans until your clusters have been generated and visualise your results based on your conditions
+# Repeat the following with set.seed function until you recieve appropriate clustering 
+scdata$kmeans <- kmeans(scdata@reductions[["pca"]]@cell.embeddings, centers = numberofclusters)$cluster
+TSNEPlot(scdata, split.by = "condition", group.by = "kmeans", label = TRUE,
+         pt.size = 0.025) + theme(
+             axis.line = element_blank(),
+             axis.text.x = element_blank(),
+             axis.text.y = element_blank(),
+             axis.title = element_blank(),
+             axis.ticks = element_blank()) + coord_flip() + scale_x_reverse()
+
+
+#Indicate your genes of interest and marker genes for analysis.
+#Features = Genes of Interest
+#Features1 = Marker Genes
+
+features <- c("Zbtb16", "Tbx21", "Gata3", "Rorc", "Foxp3", "Maf", "Nfil3", "Bcl6", "Irf4", "Lef1", "Cd24a", "Cd44", "Klrb1b", "Klrb1c", "Ifng", "Il2", "Il4", "Il17a", "Il10", "Il21", "Il2rb", "Zfp683", "Il17rb", "Tnfsf11", "Tnfrsf4", "Il7r", "Tgfbr2", "Lag3", "Ctla4", "Slamf6", "Itga4", "Itgae", "Pdcd1", "Tigit", "Ccr6", "Ccr9", "Cxcr5", "Icos", "Nrp1", "Izumo1r", "Cd27")
+features1 <- c("Egr1", "Ifng", "Fos", "Gm42418", "Ier2", "Gadd45b", "Fosb", "Zfp36", "Junb", "Satb1", "Nfkbia", "Art2b", "Zbtb16", "Fgl2", "Il4", "Rora", "Dusp2", "Srgn", "Serpina3g", "Dusp1", "Gzmb", "Tnfaip3", "Ifi27l2a", "Pim1", "P2rx7", "Jund", "Ifi214", "Zfp36l2", "Dusp5", "Bcl62a1b", "Pabpc1", "Ctla2a", "Cd52", "Ctsw", "Ikzf3", "AY036118", "Actg1", "Tox", "AC149090.1", "Izumo1r", "Prkca", "Baz1a", "Cd200", "Slamf6", "Tmem64", "Gpm6b", "Spp1", "Hspa1a", "Hspa1b", "Tnfsf8")
+
+# Use Kmeans for gene expression visualization with your appropriate heatmap perameters based on each generated cluster identities. 
+
+> Idents(scdata) <- "kmeans"
+> Idents(scdata) <- factor(Idents(scdata), levels = 1:length(levels(Idents(scdata))))
+
+#Visualize gene expression of total sample (all clusters combined conditions) and save the plot
+#This step usually can identify if your analysis or clusters are not correct. Make sure that this corresponds well with t-SNE plots
+> DoHeatmap(subset(scdata, downsample = 1000), features = features[features %in% rownames(scdata)],
+  size = 3, angle = 0) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red")
+
+# Visualize  gene expression of Bcl6 KO vs WT within each respective cluster identity
+#Use idents metadata to generate gene expression in clusters 1-5 between groups
+> DoHeatmap(subset(scdata, downsample = 1000, idents = 1), group.by = "condition", features = features[features %in% rownames(scdata)],
+          size = 3, angle = 0) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red")
+
+> DoHeatmap(subset(scdata, downsample = 1000, idents = 2), group.by = "condition", features = features[features %in% rownames(scdata)],
+           size = 3, angle = 0) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red")
+
+> DoHeatmap(subset(scdata, downsample = 1000, idents = 3), group.by = "condition", features = features[features %in% rownames(scdata)],
+           size = 3, angle = 0) +
+     scale_fill_gradient2(low = "blue", mid = "white", high = "red")
+
+> DoHeatmap(subset(scdata, downsample = 1000, idents = 4), group.by = "condition", features = features[features %in% rownames(scdata)],
+           size = 3, angle = 0) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red")
+
+> DoHeatmap(subset(scdata, downsample = 1000, idents = 5), group.by = "condition", features = features[features %in% rownames(scdata)],
+          size = 3, angle = 0) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red")
+
+#Create a Feature Plot of your genes of interest through cowplot since this allows you to plot many of the same plots on the same page as supposed to seperatly.
+# I left this Plot last since it is competuationally heavy and you could lose your results of TSNE if this is done before anything else. 
+
+cowplot::plot_grid(plotlist = p, ncol = 6)
+p <- FeaturePlot(scdata, cols = c("grey", "red"), max.cutoff = 3, label = FALSE, features = features, combine = FALSE, reduction = "tsne")
+for(i in 1:length(p)) {
+    p[[i]] <- p[[i]] + NoAxes() + NoLegend() + coord_flip() + scale_x_reverse()
+}
+
+#Use the following to generate Pie Charts of your clusters. Cols function lets you adjust any colours you may want to change.
+#Subset and Visualize Bcl6 Ko condition for subsequent function with pie.
+> bcl6 <- subset(scdata, subset = condition == "Bcl6 KO" )
+> cell.numberBcl6 <- table(Idents(bcl6))
+> pie(cell.numberBcl6, col = c("red", "yellow3", "green3", "cyan", "violet"))
+
+#Subset and Visualize WT condition for subsequent function with pie.
+> WT <- subset(scdata, subset = condition == "WT" )
+> cell.numberWT <- table(Idents(WT))
+> pie(cell.numberWT, col = c("red", "yellow3", "green3", "cyan", "violet"))
+
+
